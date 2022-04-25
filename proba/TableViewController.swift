@@ -12,6 +12,13 @@ class TableViewController: UITableViewController {
     var meals: [Meal] = []
     var URL = ""
     var newTitle = "All Meals"
+    private var filterResult = [Meal]()
+    private let searchController = UISearchController(searchResultsController: nil)
+   
+    private var searchBarIsEmpty: Bool {
+        guard let text = searchController.searchBar.text else {return false}
+        return text.isEmpty
+    }
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -23,18 +30,33 @@ class TableViewController: UITableViewController {
         } else {
            getMeals()
         }
+        
+        searchController.searchResultsUpdater = self
+        searchController.obscuresBackgroundDuringPresentation = false
+        searchController.searchBar.placeholder = "Search"
+        navigationItem.searchController = searchController
+        definesPresentationContext = true
     }
 
     // MARK: - Table view data source
 
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        
+        if isFiltering{
+            return filterResult.count
+        }
         return meals.count
     }
 
     
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "cell", for: indexPath) as! CustomTableViewCell
-        let meal = meals[indexPath.row]
+        var meal: Meal
+        if isFiltering {
+            meal = filterResult[indexPath.row]
+        } else {
+            meal = meals[indexPath.row]
+        }
         cell.set(object: meal)
         return cell
     }
@@ -60,7 +82,32 @@ class TableViewController: UITableViewController {
         if segue.identifier == "mealDetails" {
             guard let mealDetailsVC = segue.destination as? MealDetailsViewController else {return}
             guard let indexPath = tableView.indexPathForSelectedRow else {return}
-            mealDetailsVC.URL = "https://www.themealdb.com/api/json/v1/1/lookup.php?i=\(meals[indexPath.row].idMeal!)"
+            var meal: Meal
+            if isFiltering {
+                meal = filterResult[indexPath.row]
+            } else {
+                meal = meals[indexPath.row]
+            }
+            mealDetailsVC.URL = "https://www.themealdb.com/api/json/v1/1/lookup.php?i=\(meal.idMeal!)"
         }
+    }
+    
+    private var isFiltering: Bool {
+        return searchController.isActive && !searchBarIsEmpty
+    }
+}
+
+extension TableViewController: UISearchResultsUpdating {
+    
+    
+    func updateSearchResults(for searchController: UISearchController) {
+        filterContentForSearchText(searchController.searchBar.text!)
+    }
+    
+    private func filterContentForSearchText(_ searchText: String) {
+        filterResult = meals.filter({ meal in
+            return meal.strMeal?.lowercased().contains(searchText.lowercased()) as! Bool
+        })
+        tableView.reloadData()
     }
 }
